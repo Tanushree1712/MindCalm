@@ -1,7 +1,11 @@
 import crypto from 'crypto';
 
 // Master key derived from environment or secure consistent local secret for database encryption
-const ENCRYPTION_SECRET = process.env.DB_ENCRYPTION_SECRET || 'mindcalm-secure-aes256-sanctuary-key-v1-production';
+const configuredSecret = process.env.DB_ENCRYPTION_SECRET;
+if (process.env.VERCEL && !configuredSecret) {
+  throw new Error('DB_ENCRYPTION_SECRET must be configured for Vercel deployments');
+}
+const ENCRYPTION_SECRET = configuredSecret || 'mindcalm-local-development-key-only';
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
 const KEY = crypto.createHash('sha256').update(String(ENCRYPTION_SECRET)).digest();

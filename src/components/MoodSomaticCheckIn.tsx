@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Smile, Heart, Activity, CheckCircle2, Sparkles, MapPin, Coffee, Moon, Shield } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { apiFetch } from '../utils/api';
 
 interface MoodSomaticCheckInProps {
   onCheckInCompleted: () => void;
@@ -76,7 +77,7 @@ export const MoodSomaticCheckIn: React.FC<MoodSomaticCheckInProps> = ({ onCheckI
         sleepQuality
       };
 
-      const res = await fetch('/api/checkins', {
+      const res = await apiFetch('/api/checkins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

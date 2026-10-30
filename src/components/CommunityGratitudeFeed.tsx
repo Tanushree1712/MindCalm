@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Heart, Plus, Sparkles, Filter, Shield, Smile, RefreshCw, MessageSquare } from 'lucide-react';
 import { GratitudePost } from '../types';
 import confetti from 'canvas-confetti';
+import { apiFetch } from '../utils/api';
 
 interface CommunityGratitudeFeedProps {
   onGratitudeShared?: () => void;
@@ -30,7 +31,7 @@ export const CommunityGratitudeFeed: React.FC<CommunityGratitudeFeedProps> = ({ 
   const fetchPosts = async (cat?: string) => {
     try {
       const url = cat && cat !== 'All' ? `/api/gratitude?category=${encodeURIComponent(cat)}` : '/api/gratitude';
-      const res = await fetch(url);
+      const res = await apiFetch(url);
       const json = await res.json();
       if (json.success && json.data) {
         setPosts(json.data);
@@ -62,7 +63,7 @@ export const CommunityGratitudeFeed: React.FC<CommunityGratitudeFeedProps> = ({ 
     setPosts(prev => prev.map(p => p._id === id ? { ...p, hearts: p.hearts + 1 } : p));
 
     try {
-      await fetch(`/api/gratitude/${id}/heart`, { method: 'POST' });
+      await apiFetch(`/api/gratitude/${id}/heart`, { method: 'POST' });
     } catch (err) {
       console.error(err);
     }
@@ -76,7 +77,7 @@ export const CommunityGratitudeFeed: React.FC<CommunityGratitudeFeedProps> = ({ 
     setErrorMessage('');
 
     try {
-      const res = await fetch('/api/gratitude', {
+      const res = await apiFetch('/api/gratitude', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ category: newCategory, text: newText.trim() })

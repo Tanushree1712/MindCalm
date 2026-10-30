@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { encryptPayload, decryptPayload, EncryptedData } from './crypto.js';
+import { atlasStore } from './atlasStore.js';
 
 export interface MoodCheckIn {
   _id: string;
@@ -394,4 +395,52 @@ class EncryptedMongoStore {
   }
 }
 
-export const mongoStore = new EncryptedMongoStore();
+const localStore = process.env.VERCEL ? undefined : new EncryptedMongoStore();
+
+function getLocalStore(): EncryptedMongoStore {
+  if (!localStore) throw new Error('MONGODB_URI is required when running on Vercel');
+  return localStore;
+}
+
+const useAtlas = () => Boolean(process.env.MONGODB_URI);
+
+// Local development keeps the encrypted file store; deployments use Atlas.
+export const mongoStore = {
+  ping: async () => {
+    if (useAtlas()) return atlasStore.ping();
+    getLocalStore();
+  },
+  getCheckins: async (userId = 'default_user') => useAtlas()
+    ? atlasStore.getCheckins(userId)
+    : getLocalStore().getCheckins(userId),
+  addCheckin: async (data: Omit<MoodCheckIn, '_id' | 'createdAt'>) => useAtlas()
+    ? atlasStore.addCheckin(data)
+    : getLocalStore().addCheckin(data),
+  deleteCheckin: async (id: string, userId = 'default_user') => useAtlas()
+    ? atlasStore.deleteCheckin(id, userId)
+    : getLocalStore().deleteCheckin(id, userId),
+  getJournals: async (userId = 'default_user') => useAtlas()
+    ? atlasStore.getJournals(userId)
+    : getLocalStore().getJournals(userId),
+  addJournal: async (data: Omit<JournalEntry, '_id' | 'createdAt'>) => useAtlas()
+    ? atlasStore.addJournal(data)
+    : getLocalStore().addJournal(data),
+  getGratitudes: async (category?: string) => useAtlas()
+    ? atlasStore.getGratitudes(category)
+    : getLocalStore().getGratitudes(category),
+  addGratitude: async (category: GratitudePost['category'], text: string) => useAtlas()
+    ? atlasStore.addGratitude(category, text)
+    : getLocalStore().addGratitude(category, text),
+  heartGratitude: async (id: string) => useAtlas()
+    ? atlasStore.heartGratitude(id)
+    : getLocalStore().heartGratitude(id),
+  getChatHistory: async (sessionId = 'default_user') => useAtlas()
+    ? atlasStore.getChatHistory(sessionId)
+    : getLocalStore().getChatHistory(sessionId),
+  appendChatMessage: async (sessionId: string, message: ChatMessage) => useAtlas()
+    ? atlasStore.appendChatMessage(sessionId, message)
+    : getLocalStore().appendChatMessage(sessionId, message),
+  clearChatHistory: async (sessionId = 'default_user') => useAtlas()
+    ? atlasStore.clearChatHistory(sessionId)
+    : getLocalStore().clearChatHistory(sessionId)
+};

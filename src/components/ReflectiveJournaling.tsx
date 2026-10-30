@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Sparkles, Heart, CheckCircle2, RefreshCw, Feather, Shield, ListChecks, Calendar, ArrowRight } from 'lucide-react';
 import { JournalEntry } from '../types';
+import { apiFetch } from '../utils/api';
 
 interface ReflectiveJournalingProps {
   onOpenBreathingTool?: () => void;
@@ -50,7 +51,7 @@ export const ReflectiveJournaling: React.FC<ReflectiveJournalingProps> = ({ onOp
 
   const fetchEntries = async () => {
     try {
-      const res = await fetch('/api/journals');
+      const res = await apiFetch('/api/journals');
       const json = await res.json();
       if (json.success && json.data) {
         setSavedEntries(json.data);
@@ -73,7 +74,7 @@ export const ReflectiveJournaling: React.FC<ReflectiveJournalingProps> = ({ onOp
     setCurrentReflection(null);
 
     try {
-      const res = await fetch('/api/journals/reflect', {
+      const res = await apiFetch('/api/journals/reflect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -88,7 +89,7 @@ export const ReflectiveJournaling: React.FC<ReflectiveJournalingProps> = ({ onOp
         setCurrentReflection(json.data);
 
         // Also save to database
-        await fetch('/api/journals', {
+        await apiFetch('/api/journals', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

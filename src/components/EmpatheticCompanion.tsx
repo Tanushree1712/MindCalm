@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, Bot, Sparkles, Shield, AlertTriangle, RefreshCw, Wind, Compass, ArrowUpRight, CheckCheck } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { CrisisSafetyBanner } from './CrisisSafetyBanner';
+import { apiFetch } from '../utils/api';
 
 interface EmpatheticCompanionProps {
   onNavigateToTools?: (tool: 'breathing' | 'grounding' | 'journal') => void;
@@ -38,7 +39,7 @@ export const EmpatheticCompanion: React.FC<EmpatheticCompanionProps> = ({
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const res = await fetch('/api/chat/history');
+        const res = await apiFetch('/api/chat/history');
         const json = await res.json();
         if (json.success && json.data && json.data.length > 0) {
           setMessages(json.data);
@@ -92,7 +93,7 @@ export const EmpatheticCompanion: React.FC<EmpatheticCompanionProps> = ({
     setLoading(true);
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await apiFetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -140,7 +141,7 @@ export const EmpatheticCompanion: React.FC<EmpatheticCompanionProps> = ({
   const handleClearChat = async () => {
     if (!confirm('Would you like to clear this sanctuary conversation?')) return;
     try {
-      await fetch('/api/chat/clear', { method: 'POST' });
+      await apiFetch('/api/chat/clear', { method: 'POST' });
       setMessages([
         {
           id: 'welcome_fresh',

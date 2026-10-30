@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, TrendingUp, Calendar, Activity, Shield, FileText, CheckCircle2, ChevronRight, Eye, RefreshCw } from 'lucide-react';
 import { StatsData, MoodCheckIn } from '../types';
+import { apiFetch } from '../utils/api';
 
 interface TrendAnalyticsExportProps {
   onCheckInNow?: () => void;
@@ -16,8 +17,8 @@ export const TrendAnalyticsExport: React.FC<TrendAnalyticsExportProps> = ({ onCh
     setLoading(true);
     try {
       const [statsRes, checkinsRes] = await Promise.all([
-        fetch('/api/stats'),
-        fetch('/api/checkins')
+        apiFetch('/api/stats'),
+        apiFetch('/api/checkins')
       ]);
       const statsJson = await statsRes.json();
       const checkinsJson = await checkinsRes.json();
@@ -35,8 +36,20 @@ export const TrendAnalyticsExport: React.FC<TrendAnalyticsExportProps> = ({ onCh
     fetchData();
   }, []);
 
-  const handleDownloadCsv = () => {
-    window.location.href = '/api/checkins/export/csv';
+  const handleDownloadCsv = async () => {
+    try {
+      const response = await apiFetch('/api/checkins/export/csv');
+      if (!response.ok) throw new Error('Export failed');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `MindCalm_Clinical_Export_${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Could not download clinical export:', error);
+    }
   };
 
   if (loading || !stats) {

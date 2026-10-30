@@ -1,37 +1,59 @@
 import 'dotenv/config';
 import express, { Request, Response } from 'express';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { mongoStore } from './server/db/mongoStore.js';
 import { getEmpatheticCompanionReply, generateJournalReflection, detectCrisisSignals } from './server/gemini.js';
 
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json());
+
+const SESSION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+app.use('/api', (req: Request, res: Response, next) => {
+  if (req.path === '/health' || req.path.startsWith('/gratitude')) {
+    next();
+    return;
+  }
+  const suppliedSession = req.header('X-MindCalm-Session');
+  if (suppliedSession && !SESSION_ID_PATTERN.test(suppliedSession)) {
+    res.status(400).json({ success: false, error: 'Invalid app session' });
+    return;
+  }
+  if (process.env.VERCEL && !suppliedSession) {
+    res.status(400).json({ success: false, error: 'App session is required' });
+    return;
+  }
+  res.locals.sessionId = process.env.VERCEL || process.env.MONGODB_URI ? suppliedSession : 'default_user';
+  next();
+});
 
 // --- REST API Endpoints ---
 
 // 1. Health & Database Encryption Status
-app.get('/api/health', (req: Request, res: Response) => {
-  res.json({
-    status: 'ok',
-    database: 'Encrypted MongoDB Architecture (AES-256-GCM at rest)',
-    aiEngine: 'Google Gemini 3.8 Flash (@google/genai)',
-    crisisProtocolActive: true,
-    timestamp: new Date().toISOString()
-  });
+app.get('/api/health', async (req: Request, res: Response) => {
+  try {
+    await mongoStore.ping();
+    res.json({
+      status: 'ok',
+      database: process.env.MONGODB_URI ? 'MongoDB Atlas connected' : 'Local encrypted development store',
+      aiEngine: process.env.GEMINI_API_KEY ? 'Google Gemini configured' : 'Gemini API key missing',
+      crisisProtocolActive: true,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'error',
+      database: 'MongoDB unavailable or not configured',
+      aiEngine: process.env.GEMINI_API_KEY ? 'Google Gemini configured' : 'Gemini API key missing',
+      crisisProtocolActive: true,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // 2. Check-ins Endpoints
-app.get('/api/checkins', (req: Request, res: Response) => {
+app.get('/api/checkins', async (req: Request, res: Response) => {
   try {
-    const checkins = mongoStore.getCheckins();
+    const checkins = await mongoStore.getCheckins(res.locals.sessionId);
     res.json({ success: true, count: checkins.length, data: checkins });
   } catch (error) {
     console.error('Error fetching checkins:', error);
@@ -39,7 +61,7 @@ app.get('/api/checkins', (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/checkins', (req: Request, res: Response) => {
+app.post('/api/checkins', async (req: Request, res: Response) => {
   try {
     const {
       moodScore,
@@ -59,8 +81,8 @@ app.post('/api/checkins', (req: Request, res: Response) => {
       return;
     }
 
-    const newCheckin = mongoStore.addCheckin({
-      userId: 'default_user',
+    const newCheckin = await mongoStore.addCheckin({
+      userId: res.locals.sessionId,
       moodScore: Math.min(10, Math.max(1, moodScore)),
       moodLabel: moodLabel || 'Checked in',
       emotions: Array.isArray(emotions) ? emotions : [],
@@ -80,9 +102,9 @@ app.post('/api/checkins', (req: Request, res: Response) => {
   }
 });
 
-app.delete('/api/checkins/:id', (req: Request, res: Response) => {
+app.delete('/api/checkins/:id', async (req: Request, res: Response) => {
   try {
-    const success = mongoStore.deleteCheckin(req.params.id);
+    const success = await mongoStore.deleteCheckin(req.params.id, res.locals.sessionId);
     res.json({ success });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to delete check-in' });
@@ -90,9 +112,9 @@ app.delete('/api/checkins/:id', (req: Request, res: Response) => {
 });
 
 // 3. Clinical CSV Data Export for Healthcare Professionals
-app.get('/api/checkins/export/csv', (req: Request, res: Response) => {
+app.get('/api/checkins/export/csv', async (req: Request, res: Response) => {
   try {
-    const checkins = mongoStore.getCheckins();
+    const checkins = await mongoStore.getCheckins(res.locals.sessionId);
     
     // CSV Header matching clinical mental health assessment formats
     const headers = [
@@ -148,9 +170,9 @@ app.get('/api/checkins/export/csv', (req: Request, res: Response) => {
 });
 
 // 4. Analytics & 7-Day Stats
-app.get('/api/stats', (req: Request, res: Response) => {
+app.get('/api/stats', async (req: Request, res: Response) => {
   try {
-    const checkins = mongoStore.getCheckins();
+    const checkins = await mongoStore.getCheckins(res.locals.sessionId);
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
     const recentCheckins = checkins.filter(c => new Date(c.createdAt) >= sevenDaysAgo);
@@ -236,9 +258,9 @@ app.get('/api/stats', (req: Request, res: Response) => {
 });
 
 // 5. Journal Endpoints
-app.get('/api/journals', (req: Request, res: Response) => {
+app.get('/api/journals', async (req: Request, res: Response) => {
   try {
-    const journals = mongoStore.getJournals();
+    const journals = await mongoStore.getJournals(res.locals.sessionId);
     res.json({ success: true, count: journals.length, data: journals });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Could not fetch journals' });
@@ -261,7 +283,7 @@ app.post('/api/journals/reflect', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/journals', (req: Request, res: Response) => {
+app.post('/api/journals', async (req: Request, res: Response) => {
   try {
     const { title, prompt, content, empatheticReflection, positiveActionTakeaways, sentimentLabel } = req.body;
     if (!content || !content.trim()) {
@@ -269,8 +291,8 @@ app.post('/api/journals', (req: Request, res: Response) => {
       return;
     }
 
-    const newJournal = mongoStore.addJournal({
-      userId: 'default_user',
+    const newJournal = await mongoStore.addJournal({
+      userId: res.locals.sessionId,
       title: title || 'Sanctuary Journal',
       prompt: prompt || 'Free-flow thoughts',
       content,
@@ -288,17 +310,17 @@ app.post('/api/journals', (req: Request, res: Response) => {
 });
 
 // 6. Community Gratitude Feed Endpoints
-app.get('/api/gratitude', (req: Request, res: Response) => {
+app.get('/api/gratitude', async (req: Request, res: Response) => {
   try {
     const category = req.query.category as string | undefined;
-    const posts = mongoStore.getGratitudes(category);
+    const posts = await mongoStore.getGratitudes(category);
     res.json({ success: true, count: posts.length, data: posts });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Could not fetch gratitude feed' });
   }
 });
 
-app.post('/api/gratitude', (req: Request, res: Response) => {
+app.post('/api/gratitude', async (req: Request, res: Response) => {
   try {
     const { category, text } = req.body;
     if (!text || text.trim().length < 3) {
@@ -315,7 +337,7 @@ app.post('/api/gratitude', (req: Request, res: Response) => {
       return;
     }
 
-    const newPost = mongoStore.addGratitude(category, text);
+    const newPost = await mongoStore.addGratitude(category, text);
     res.status(201).json({ success: true, data: newPost });
   } catch (error) {
     console.error('Error creating gratitude:', error);
@@ -323,9 +345,9 @@ app.post('/api/gratitude', (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/gratitude/:id/heart', (req: Request, res: Response) => {
+app.post('/api/gratitude/:id/heart', async (req: Request, res: Response) => {
   try {
-    const updated = mongoStore.heartGratitude(req.params.id);
+    const updated = await mongoStore.heartGratitude(req.params.id);
     if (!updated) {
       res.status(404).json({ success: false, error: 'Post not found' });
       return;
@@ -348,14 +370,15 @@ app.post('/api/chat', async (req: Request, res: Response) => {
     const replyData = await getEmpatheticCompanionReply(message, history || []);
     
     // Save to encrypted session history
-    mongoStore.appendChatMessage('default_user', {
+    const sessionId = res.locals.sessionId as string;
+    await mongoStore.appendChatMessage(sessionId, {
       id: 'usr_' + Date.now(),
       sender: 'user',
       text: message,
       timestamp: new Date().toISOString()
     });
 
-    mongoStore.appendChatMessage('default_user', {
+    await mongoStore.appendChatMessage(sessionId, {
       id: 'ast_' + Date.now(),
       sender: 'assistant',
       text: replyData.reply,
@@ -373,62 +396,22 @@ app.post('/api/chat', async (req: Request, res: Response) => {
   }
 });
 
-app.get('/api/chat/history', (req: Request, res: Response) => {
+app.get('/api/chat/history', async (req: Request, res: Response) => {
   try {
-    const history = mongoStore.getChatHistory('default_user');
+    const history = await mongoStore.getChatHistory(res.locals.sessionId);
     res.json({ success: true, data: history });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Could not fetch chat history' });
   }
 });
 
-app.post('/api/chat/clear', (req: Request, res: Response) => {
+app.post('/api/chat/clear', async (req: Request, res: Response) => {
   try {
-    mongoStore.clearChatHistory('default_user');
+    await mongoStore.clearChatHistory(res.locals.sessionId);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Could not clear chat history' });
   }
 });
 
-// --- Server Lifecycle & Vite Middleware Mounting ---
-async function startServer() {
-  if (process.env.NODE_ENV === 'production') {
-    const distPath = path.resolve(__dirname, 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req: Request, res: Response) => {
-      res.sendFile(path.resolve(distPath, 'index.html'));
-    });
-  } else {
-    // Development mode with Vite's middlewares mounted directly
-    const { createServer } = await import('vite');
-    const vite = await createServer({
-      server: {
-        middlewareMode: true,
-        watch: {
-          ignored: [
-            '**/.data/**',
-            '**/.data/*',
-            '**/.data',
-            '**/mongodb_encrypted.json',
-            '**/server/**',
-            '**/.git/**',
-          ]
-        }
-      },
-      appType: 'spa'
-    });
-    app.use(vite.middlewares);
-  }
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[MindCalm Sanctuary Server] running on http://0.0.0.0:${PORT}`);
-    console.log(`[MongoDB Storage] AES-256-GCM encrypted persistence active`);
-    console.log(`[AI Engine] Gemini 3.8 Flash initialized with safety protocols`);
-  });
-}
-
-startServer().catch(err => {
-  console.error('Failed to start MindCalm server:', err);
-  process.exit(1);
-});
+export default app;
