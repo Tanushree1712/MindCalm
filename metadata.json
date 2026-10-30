@@ -1,0 +1,6 @@
+{
+  "name": "MindCalm - Digital Mental Well-Being Sanctuary",
+  "description": "MindCalm is a digital sanctuary for mental well-being, mindfulness, daily mood & somatic check-ins, empathetic AI companion, reflective journaling, and calming grounding tools.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

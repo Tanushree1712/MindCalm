@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-sand: #F4EFE6;
+  --color-sage: #A3B18A;
+  --color-primary-green: #588157;
+  --color-forest: #3A5A40;
+  --color-card-bg: #FBF9F3;
+  --color-text-primary: #35463A;
+  --color-text-secondary: #6C786B;
+  --color-border-soft: #DEDCCF;
+  --color-muted-sand: #EDE9DF;
+  --color-pale-sage: #E2E8D7;
+  --color-terracotta: #A75D43;
+
+  --font-serif: 'Fraunces', Georgia, serif;
+  --font-sans: 'Figtree', system-ui, -apple-system, sans-serif;
+
+  --radius: 1rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  --shadow-organic: 0 20px 50px -25px rgba(58, 90, 64, 0.35);
+  --shadow-organic-sm: 0 10px 30px -15px rgba(58, 90, 64, 0.2);
+}
+
+:root {
+  --radius: 1rem;
+}
+
+@layer base {
+  body {
+    font-family: 'Figtree', system-ui, -apple-system, sans-serif;
+    background-color: #F4EFE6;
+    color: #35463A;
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3, h4, .font-serif {
+    font-family: 'Fraunces', Georgia, serif;
+    letter-spacing: -0.01em;
+    color: #3A5A40;
+  }
+
+  p {
+    color: #35463A;
+  }
+}
+
+/* 8-Second Mindful Breathing Animation */
+@keyframes organicBreathe {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 25px 60px -20px rgba(58, 90, 64, 0.45);
+  }
+  100% {
+    transform: scale(0.7);
+    opacity: 0.85;
+  }
+}
+
+.animate-organic-breathe {
+  animation: organicBreathe 8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-organic-breathe {
+    animation: none;
+    transform: scale(1);
+  }
+}
+
+/* Gradients */
+.gradient-sage-forest {
+  background: linear-gradient(135deg, #588157, #3A5A40);
+}
+
+.gradient-sand-subtle {
+  background: linear-gradient(180deg, #FBF9F3 0%, #F4EFE6 100%);
+}
+
+.shadow-diffused-organic {
+  box-shadow: 0 20px 50px -25px rgba(58, 90, 64, 0.35);
+}
+
+.shadow-diffused-sm {
+  box-shadow: 0 10px 30px -15px rgba(58, 90, 64, 0.2);
+}
+
+.chat-wallpaper {
+  background-color: #f6f3eb;
+  background-image:
+    radial-gradient(circle at 24px 24px, rgba(163, 177, 138, 0.12) 1.5px, transparent 2px),
+    radial-gradient(circle at 74px 74px, rgba(88, 129, 87, 0.08) 1px, transparent 2px);
+  background-size: 100px 100px;
+}
+
+/* Organic Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: #F4EFE6;
+}
+::-webkit-scrollbar-thumb {
+  background: #DEDCCF;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #A3B18A;
+}
